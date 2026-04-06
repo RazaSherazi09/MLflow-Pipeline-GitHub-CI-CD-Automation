@@ -169,12 +169,15 @@ if best_accuracy > old_accuracy:
     print("\n✅ New model is better → Updating production model")
 
     joblib.dump(best_model, model_path)
+
+    # 🔥 REGISTER NEW VERSION IN MLFLOW
+    mlflow.sklearn.log_model(
+        best_model,
+        name="best_model",
+        registered_model_name="Best_Breast_Cancer_Model"
+    )
+
     deploy_model = True
-
-else:
-    print("\n⚠️ Old model is better → Keeping existing model")
-
-    deploy_model = False
 
 
 # =========================================
