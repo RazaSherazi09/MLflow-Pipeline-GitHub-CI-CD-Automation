@@ -6,7 +6,6 @@
 import os
 import joblib
 import pandas as pd
-import numpy as np
 
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
@@ -134,13 +133,32 @@ with mlflow.start_run(run_name="RandomForest_200"):
 # =========================================
 os.makedirs("models", exist_ok=True)
 
-joblib.dump(best_model, "models/best_model.pkl")
+model_path = "models/best_model.pkl"
+joblib.dump(best_model, model_path)
 
-print("\n Best model saved at models/best_model.pkl")
+print("\n✅ Best model saved at:", model_path)
 print("Best Accuracy:", best_accuracy)
 
 
 # =========================================
-# DEPLOYMENT READY (HUGGING FACE - SIMULATION)
+# DEPLOY TO HUGGING FACE (REAL)
 # =========================================
-print("\n Model ready for deployment (Hugging Face step placeholder)")
+try:
+    from huggingface_hub import HfApi
+
+    print("\n🚀 Uploading model to Hugging Face...")
+
+    api = HfApi()
+
+    api.upload_file(
+        path_or_fileobj=model_path,
+        path_in_repo="best_model.pkl",
+        repo_id="razaasherazi/mlops-best-model",  # your repo
+        repo_type="model",
+        token=os.getenv("HF_TOKEN")  # from GitHub Secrets
+    )
+
+    print("✅ Model successfully uploaded to Hugging Face!")
+
+except Exception as e:
+    print("⚠️ Hugging Face upload failed:", e)
