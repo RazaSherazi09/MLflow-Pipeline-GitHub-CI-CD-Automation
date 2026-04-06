@@ -1,5 +1,5 @@
 # =========================================
-# COMPLETE TRAINING PIPELINE (FINAL VERSION)
+# COMPLETE TRAINING PIPELINE (FINAL - PART 3)
 # =========================================
 
 # Imports
@@ -46,7 +46,6 @@ print("Test shape:", X_test.shape)
 # =========================================
 mlflow.set_experiment("Breast_Cancer_Experiment")
 
-
 best_accuracy = 0
 best_model = None
 
@@ -55,6 +54,7 @@ best_model = None
 # RUN 1 - Logistic Regression
 # =========================================
 with mlflow.start_run(run_name="Logistic_Regression"):
+    mlflow.set_tag("type", "retraining")
 
     model = LogisticRegression(max_iter=1000)
     model.fit(X_train, y_train)
@@ -78,6 +78,7 @@ with mlflow.start_run(run_name="Logistic_Regression"):
 # RUN 2 - Random Forest (100)
 # =========================================
 with mlflow.start_run(run_name="RandomForest_100"):
+    mlflow.set_tag("type", "retraining")
 
     model = RandomForestClassifier(n_estimators=100)
     model.fit(X_train, y_train)
@@ -102,6 +103,7 @@ with mlflow.start_run(run_name="RandomForest_100"):
 # RUN 3 - Random Forest (200)
 # =========================================
 with mlflow.start_run(run_name="RandomForest_200"):
+    mlflow.set_tag("type", "retraining")
 
     model = RandomForestClassifier(n_estimators=200)
     model.fit(X_train, y_train)
@@ -113,7 +115,6 @@ with mlflow.start_run(run_name="RandomForest_200"):
     mlflow.log_param("n_estimators", 200)
     mlflow.log_metric("accuracy", acc)
 
-    # Register model in MLflow
     mlflow.sklearn.log_model(
         model,
         "model",
@@ -129,36 +130,54 @@ with mlflow.start_run(run_name="RandomForest_200"):
 
 
 # =========================================
-# SAVE BEST MODEL (ARTIFACT)
+# MODEL SELECTION LOGIC (PART 3)
 # =========================================
 os.makedirs("models", exist_ok=True)
-
 model_path = "models/best_model.pkl"
-joblib.dump(best_model, model_path)
 
-print("\n✅ Best model saved at:", model_path)
-print("Best Accuracy:", best_accuracy)
+# Load old model if exists
+if os.path.exists(model_path):
+    old_model = joblib.load(model_path)
+    old_preds = old_model.predict(X_test)
+    old_accuracy = accuracy_score(y_test, old_preds)
+else:
+    old_accuracy = 0
+
+print("\nOld Model Accuracy:", old_accuracy)
+print("New Model Accuracy:", best_accuracy)
+
+# Replace only if better
+if best_accuracy > old_accuracy:
+    joblib.dump(best_model, model_path)
+    print("✅ New model is better → Updated!")
+    deploy_model = True
+else:
+    print("⚠️ Old model is better → Keeping old model")
+    deploy_model = False
 
 
 # =========================================
-# DEPLOY TO HUGGING FACE (REAL)
+# DEPLOY TO HUGGING FACE (ONLY IF BETTER)
 # =========================================
-try:
-    from huggingface_hub import HfApi
+if deploy_model:
+    try:
+        from huggingface_hub import HfApi
 
-    print("\n🚀 Uploading model to Hugging Face...")
+        print("\n🚀 Uploading model to Hugging Face...")
 
-    api = HfApi()
+        api = HfApi()
 
-    api.upload_file(
-        path_or_fileobj=model_path,
-        path_in_repo="best_model.pkl",
-        repo_id="razaasherazi/mlops-best-model",  # your repo
-        repo_type="model",
-        token=os.getenv("HF_TOKEN")  # from GitHub Secrets
-    )
+        api.upload_file(
+            path_or_fileobj=model_path,
+            path_in_repo="best_model.pkl",
+            repo_id="razaasherazi/mlops-best-model",
+            repo_type="model",
+            token=os.getenv("HF_TOKEN")
+        )
 
-    print("✅ Model successfully uploaded to Hugging Face!")
+        print("✅ Model successfully uploaded to Hugging Face!")
 
-except Exception as e:
-    print("⚠️ Hugging Face upload failed:", e)
+    except Exception as e:
+        print("⚠️ Hugging Face upload failed:", e)
+else:
+    print("⏭️ Deployment skipped (model not improved)")
