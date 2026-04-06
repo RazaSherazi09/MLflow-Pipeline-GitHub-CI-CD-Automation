@@ -3,6 +3,8 @@ name: MLflow CI Pipeline
 on:
   push:
     branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'   # runs daily
 
 jobs:
   train:
@@ -21,13 +23,30 @@ jobs:
       run: |
         pip install -r requirements.txt
 
+    # ===============================
+    # STEP 1: DRIFT CHECK
+    # ===============================
+    - name: Check Data Drift
+      id: drift
+      continue-on-error: true
+      run: |
+        python src/drift.py
+
+    # ===============================
+    # STEP 2: TRAIN ONLY IF DRIFT
+    # ===============================
     - name: Run Training Script
+      if: steps.drift.outcome == 'failure'
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
       run: |
         python src/train.py
 
+    # ===============================
+    # STEP 3: TEST ONLY IF TRAINED
+    # ===============================
     - name: Run Tests
+      if: steps.drift.outcome == 'failure'
       run: |
         pip install pytest
         pytest
