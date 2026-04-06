@@ -1,4 +1,10 @@
-# Import Libraries
+# =========================================
+# COMPLETE TRAINING PIPELINE (FINAL VERSION)
+# =========================================
+
+# Imports
+import os
+import joblib
 import pandas as pd
 import numpy as np
 
@@ -12,9 +18,9 @@ import mlflow
 import mlflow.sklearn
 
 
-# ================================
-# STEP 2: LOAD DATASET
-# ================================
+# =========================================
+# LOAD DATA
+# =========================================
 data = load_breast_cancer()
 
 X = pd.DataFrame(data.data, columns=data.feature_names)
@@ -24,9 +30,9 @@ print("\nDataset Loaded Successfully!")
 print("Shape:", X.shape)
 
 
-# ================================
-# STEP 3: TRAIN-TEST SPLIT
-# ================================
+# =========================================
+# TRAIN TEST SPLIT
+# =========================================
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
@@ -36,15 +42,19 @@ print("Train shape:", X_train.shape)
 print("Test shape:", X_test.shape)
 
 
-# ================================
-# STEP 5: MLflow EXPERIMENT SETUP
-# ================================
+# =========================================
+# MLflow EXPERIMENT
+# =========================================
 mlflow.set_experiment("Breast_Cancer_Experiment")
 
 
-# ================================
-# RUN 1: Logistic Regression
-# ================================
+best_accuracy = 0
+best_model = None
+
+
+# =========================================
+# RUN 1 - Logistic Regression
+# =========================================
 with mlflow.start_run(run_name="Logistic_Regression"):
 
     model = LogisticRegression(max_iter=1000)
@@ -53,7 +63,6 @@ with mlflow.start_run(run_name="Logistic_Regression"):
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
 
-    # Logging
     mlflow.log_param("model", "LogisticRegression")
     mlflow.log_metric("accuracy", acc)
     mlflow.sklearn.log_model(model, "model")
@@ -61,10 +70,14 @@ with mlflow.start_run(run_name="Logistic_Regression"):
     print("\nRun 1 Completed - Logistic Regression")
     print("Accuracy:", acc)
 
+    if acc > best_accuracy:
+        best_accuracy = acc
+        best_model = model
 
-# ================================
-# RUN 2: Random Forest (100 trees)
-# ================================
+
+# =========================================
+# RUN 2 - Random Forest (100)
+# =========================================
 with mlflow.start_run(run_name="RandomForest_100"):
 
     model = RandomForestClassifier(n_estimators=100)
@@ -73,7 +86,6 @@ with mlflow.start_run(run_name="RandomForest_100"):
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
 
-    # Logging
     mlflow.log_param("model", "RandomForest")
     mlflow.log_param("n_estimators", 100)
     mlflow.log_metric("accuracy", acc)
@@ -82,10 +94,14 @@ with mlflow.start_run(run_name="RandomForest_100"):
     print("\nRun 2 Completed - Random Forest (100)")
     print("Accuracy:", acc)
 
+    if acc > best_accuracy:
+        best_accuracy = acc
+        best_model = model
 
-# ================================
-# RUN 3: Random Forest (200 trees)
-# ================================
+
+# =========================================
+# RUN 3 - Random Forest (200)
+# =========================================
 with mlflow.start_run(run_name="RandomForest_200"):
 
     model = RandomForestClassifier(n_estimators=200)
@@ -94,12 +110,11 @@ with mlflow.start_run(run_name="RandomForest_200"):
     preds = model.predict(X_test)
     acc = accuracy_score(y_test, preds)
 
-    # Logging
     mlflow.log_param("model", "RandomForest")
     mlflow.log_param("n_estimators", 200)
     mlflow.log_metric("accuracy", acc)
 
-    # Register Best Model (Optional but recommended)
+    # Register model in MLflow
     mlflow.sklearn.log_model(
         model,
         "model",
@@ -109,5 +124,23 @@ with mlflow.start_run(run_name="RandomForest_200"):
     print("\nRun 3 Completed - Random Forest (200)")
     print("Accuracy:", acc)
 
+    if acc > best_accuracy:
+        best_accuracy = acc
+        best_model = model
 
-print("\n ALL RUNS COMPLETED SUCCESSFULLY!")
+
+# =========================================
+# SAVE BEST MODEL (ARTIFACT)
+# =========================================
+os.makedirs("models", exist_ok=True)
+
+joblib.dump(best_model, "models/best_model.pkl")
+
+print("\n Best model saved at models/best_model.pkl")
+print("Best Accuracy:", best_accuracy)
+
+
+# =========================================
+# DEPLOYMENT READY (HUGGING FACE - SIMULATION)
+# =========================================
+print("\n Model ready for deployment (Hugging Face step placeholder)")
