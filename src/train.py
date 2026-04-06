@@ -139,45 +139,54 @@ with mlflow.start_run(run_name="RandomForest_200"):
 
 
 # =========================================
-# MODEL SELECTION LOGIC (IMPORTANT)
+# MODEL SELECTION + REGISTRATION (FINAL FIX)
 # =========================================
 os.makedirs("models", exist_ok=True)
 model_path = "models/best_model.pkl"
 
-print("\n🔍 MODEL COMPARISON STARTED")
+with mlflow.start_run(run_name="Model_Selection"):
 
-# Load old model if exists
-if os.path.exists(model_path):
-    print("📂 Previous model found")
+    print("\n🔍 MODEL COMPARISON STARTED")
 
-    old_model = joblib.load(model_path)
-    old_preds = old_model.predict(X_test)
-    old_accuracy = accuracy_score(y_test, old_preds)
+    # Load old model if exists
+    if os.path.exists(model_path):
+        print("📂 Previous model found")
 
-else:
-    print("⚠️ No previous model found")
-    old_accuracy = 0
+        old_model = joblib.load(model_path)
+        old_preds = old_model.predict(X_test)
+        old_accuracy = accuracy_score(y_test, old_preds)
 
-print(f"Old Model Accuracy: {old_accuracy:.4f}")
-print(f"New Model Accuracy: {best_accuracy:.4f}")
+    else:
+        print("⚠️ No previous model found")
+        old_accuracy = 0
 
+    print(f"Old Model Accuracy: {old_accuracy:.4f}")
+    print(f"New Model Accuracy: {best_accuracy:.4f}")
 
-# =========================================
-# MODEL DECISION
-# =========================================
-if best_accuracy > old_accuracy:
-    print("\n✅ New model is better → Updating production model")
+    # Log comparison in MLflow
+    mlflow.log_metric("old_accuracy", old_accuracy)
+    mlflow.log_metric("new_accuracy", best_accuracy)
 
-    joblib.dump(best_model, model_path)
+    # =========================================
+    # MODEL DECISION
+    # =========================================
+    if best_accuracy > old_accuracy:
+        print("\n✅ New model is better → Updating production model")
 
-    # 🔥 REGISTER NEW VERSION IN MLFLOW
-    mlflow.sklearn.log_model(
-        best_model,
-        name="best_model",
-        registered_model_name="Best_Breast_Cancer_Model"
-    )
+        joblib.dump(best_model, model_path)
 
-    deploy_model = True
+        # 🔥 REGISTER NEW VERSION (THIS FIXES YOUR ISSUE)
+        mlflow.sklearn.log_model(
+            best_model,
+            name="best_model",
+            registered_model_name="Best_Breast_Cancer_Model"
+        )
+
+        deploy_model = True
+
+    else:
+        print("\n⚠️ Old model is better → Keeping existing model")
+        deploy_model = False
 
 
 # =========================================
